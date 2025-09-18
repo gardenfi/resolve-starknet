@@ -147,6 +147,8 @@ This project is private and proprietary.
 
 ## Support
 
+Testnet Faucet : https://testnetbtc.com // claim testnet btc, evm, sol 
+
 For issues and questions:
 - Check the [Garden Finance Documentation](https://docs.garden.finance/)
 - Review the explorer for transaction status
