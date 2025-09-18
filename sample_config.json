@@ -1,11 +1,9 @@
 {
     "starknetNodeUrl": "https://starknet-sepolia.public.blastapi.io",
-    "starknetHTLC": "0x06579d255314109429a4477d89629bc2b94f529ae01979c2f8014f9246482603",
-    "starknetWBTC": "0x496bef3ed20371382fbe0ca6a5a64252c5c848f9f1f0cccf8110fc4def912d5",
     "starknetAddress": "",
     "starknetPrivateKey": "",
     "orderbookURL": "https://testnet.api.garden.finance/v2",
-    "gardenAppId": "",
+    "gardenAppId": "47d589e79ffbe321d296609f63922e64953da28ba08e07a7f4ba2d7978cfb931",
     "bitcoinAddress": ""
   }
   
