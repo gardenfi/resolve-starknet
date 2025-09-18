@@ -37,9 +37,10 @@ console.log('Selected Starknet WBTC:', starknetWBTC);
 console.log('Selected Bitcoin BTC:', bitcoinBTC);
 
 
-
+// this shows starknet wbtc and bitcoin btc
+// Interchange for reverse flow (bitcoin btc to starknet wbtc)
 // Get a quote for the order
-const quote = await axios.get(CONFIG.orderbookURL + `/quote?from=${starknetWBTC?.id}&to=${bitcoinBTC?.id}&from_amount=50000`)
+const quote = await axios.get(CONFIG.orderbookURL + `/quote?from=${bitcoinBTC?.id}&to=${starknetWBTC?.id}&from_amount=50000`)
 const quote_resp = JSON.parse(quote.data)
 
 console.log(quote_resp)
@@ -67,55 +68,75 @@ var result = await axios.post(CONFIG.orderbookURL + '/orders', create_order_req,
   }
 });
 
-// Get the order ID
+// Get the order ID and check for approval transaction
 const result_obj = JSON.parse(result.data)
 const order_id = result_obj["result"]["order_id"]
 
 console.log("Order created successfully. Order ID: ", order_id)
 
-// Get the contract data
-const wbtcContractData = await starknetProvider.getClassAt(CONFIG.starknetWBTC);
+// Check if source is Bitcoin
+const isBitcoinSource = quote_resp["result"][0]["source"]["asset"].startsWith("bitcoin_")
 
-// Create a contract
-const wbtcContract = new Contract(wbtcContractData.abi, CONFIG.starknetWBTC, starknetProvider);
-
-
-// Connect the contract to the account
-wbtcContract.connect(alice);
-
-// Get the allowance
-const allowance =  await wbtcContract.allowance(CONFIG.starknetAddress, CONFIG.starknetHTLC);
-
-console.log(allowance);
-
-// Check if the allowance is less than 1
-if (allowance < parseEther("1")) {
-  const tx = await wbtcContract.approve(CONFIG.starknetHTLC, parseEther("10"));
-  console.log(tx);
-}
-
-// Get the initiate message
-const initiate_msg: TypedData = result_obj["result"]["typed_data"]
-
-// Get the signature
-const signature = (await alice.signMessage(initiate_msg)) as WeierstrassSignatureType;
-
-const { r, s } = signature;
-
-const rs_sig =  `${r.toString()},${s.toString()}`;
-
-const sig_json = JSON.stringify({
-  "signature": rs_sig
-})
-
-
-var result = await axios.patch(CONFIG.orderbookURL + '/orders/'+order_id+'?action=initiate', sig_json, {
-  headers: {
-    'Content-Type': 'application/json',
-    'garden-app-id': CONFIG.gardenAppId
+if (isBitcoinSource) {
+  // For Bitcoin source, just display payment information
+  const amount = quote_resp["result"][0]["source"]["display"]
+  const bitcoinHTLC = result_obj["result"]["to"]
+  
+  console.log(`\n=== BITCOIN PAYMENT REQUIRED ===`)
+  console.log(`Pay ${amount} tBTC to ${bitcoinHTLC}`)
+  console.log(`\nExplorer url: https://testnet-explorer.garden.finance/order/${order_id}`)
+  console.log(`API Endpoint: https://testnet.api.garden.finance/v2/orders/${order_id}`)
+} else {
+  // For non-Bitcoin sources, proceed with approval and initiate process
+  // Check if approval transaction is needed
+  if (result_obj["result"]["approval_transaction"]) {
+    console.log("Approval transaction required. Processing...")
+    
+    const approvalTx = result_obj["result"]["approval_transaction"]
+    
+    // Create the approval call
+    const approvalCall: Call = {
+      contractAddress: approvalTx.to,
+      entrypoint: approvalTx.selector,
+      calldata: approvalTx.calldata
+    }
+    
+    // Execute the approval transaction
+    const approvalResult = await alice.execute(approvalCall)
+    console.log("Approval transaction executed. Hash: ", approvalResult.transaction_hash)
+    
+    // Wait for the approval transaction to be confirmed
+    await starknetProvider.waitForTransaction(approvalResult.transaction_hash)
+    console.log("Approval transaction confirmed")
+  } else {
+    console.log("No approval transaction required")
   }
-});
 
-const init_result = JSON.parse(result.data)
+  // Get the initiate message
+  const initiate_msg: TypedData = result_obj["result"]["typed_data"]
 
-console.log("Order initiated successfully. GaslessInitiate Result Tx Hash: ", init_result["result"])
+  // Get the signature
+  const signature = (await alice.signMessage(initiate_msg)) as WeierstrassSignatureType;
+
+  const { r, s } = signature;
+
+  const rs_sig =  `${r.toString()},${s.toString()}`;
+
+  const sig_json = JSON.stringify({
+    "signature": rs_sig
+  })
+
+  var result = await axios.patch(CONFIG.orderbookURL + '/orders/'+order_id+'?action=initiate', sig_json, {
+    headers: {
+      'Content-Type': 'application/json',
+      'garden-app-id': CONFIG.gardenAppId
+    }
+  });
+
+  const init_result = JSON.parse(result.data)
+
+  console.log("Order initiated successfully. GaslessInitiate Result Tx Hash: ", init_result["result"])
+
+  console.log("Explorer url: https://testnet-explorer.garden.finance/order/"+order_id)
+  console.log("API Endpoint: https://testnet.api.garden.finance/v2/orders/"+order_id)
+}
