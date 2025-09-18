@@ -37,10 +37,10 @@ console.log('Selected Starknet WBTC:', starknetWBTC);
 console.log('Selected Bitcoin BTC:', bitcoinBTC);
 
 
-// this shows starknet wbtc and bitcoin btc
-// Interchange for reverse flow (bitcoin btc to starknet wbtc)
+// this shows starknet wbtc to bitcoin tbtc
+// Interchange for reverse flow (bitcoin tbtc to starknet wbtc)
 // Get a quote for the order
-const quote = await axios.get(CONFIG.orderbookURL + `/quote?from=${bitcoinBTC?.id}&to=${starknetWBTC?.id}&from_amount=50000`)
+const quote = await axios.get(CONFIG.orderbookURL + `/quote?from=${starknetWBTC?.id}&to=${bitcoinBTC?.id}&from_amount=50000`)
 const quote_resp = JSON.parse(quote.data)
 
 console.log(quote_resp)
@@ -93,11 +93,12 @@ if (isBitcoinSource) {
     console.log("Approval transaction required. Processing...")
     
     const approvalTx = result_obj["result"]["approval_transaction"]
+    console.log(approvalTx)
     
     // Create the approval call
     const approvalCall: Call = {
       contractAddress: approvalTx.to,
-      entrypoint: approvalTx.selector,
+      entrypoint: "approve",
       calldata: approvalTx.calldata
     }
     
